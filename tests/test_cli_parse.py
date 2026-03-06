@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import struct
 import sys
 from pathlib import Path
 
@@ -16,7 +15,7 @@ def _write_file(tmp_path: Path, name: str, contents: str) -> Path:
     return path
 
 
-def test_main_parse_emits_json(tmp_path: Path, capsysbinary) -> None:
+def test_main_parse_emits_json(tmp_path: Path, capsys) -> None:
     path = _write_file(
         tmp_path,
         "simple.py",
@@ -39,10 +38,8 @@ def test_main_parse_emits_json(tmp_path: Path, capsysbinary) -> None:
     finally:
         sys.argv = argv
 
-    captured = capsysbinary.readouterr()
-    raw = captured.out
-    length = struct.unpack(">I", raw[:4])[0]
-    payload = json.loads(raw[4 : 4 + length].decode("utf-8"))
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip())
     assert payload[0]["mod"] == "Simple"
     assert payload[0]["task_list"] == ["hello"]
     assert payload[0]["tasks"]["hello"] == {"deps": [], "save": False}

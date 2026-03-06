@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-from gust.cli import main, run_task_from_file  # noqa: E402
+from gust.cli import main, run_done_from_file, run_task_from_file  # noqa: E402
 
 
 def _write_file(tmp_path: Path, name: str, contents: str) -> Path:
@@ -147,3 +147,60 @@ def test_main_task_run(tmp_path: Path, capsysbinary) -> None:
     length = struct.unpack(">I", raw[:4])[0]
     payload = json.loads(raw[4 : 4 + length].decode("utf-8"))
     assert payload == {"type": "result", "ok": True, "data": {"value": 7}}
+
+
+def test_run_done_success(tmp_path: Path) -> None:
+    path = _write_file(
+        tmp_path,
+        "done.py",
+        "\n".join(
+            [
+                "class MyDag:",
+                "    def done_my_run(self, status, run):",
+                "        assert status == \"ok\"",
+                "        assert run == {\"run_id\": \"123\"}",
+                "        return \"done\"",
+            ]
+        ),
+    )
+
+    result = run_done_from_file(str(path), "MyDag", "done_my_run", "ok", "123")
+    assert result == {"type": "result", "ok": True, "data": {"value": "done"}}
+
+
+def test_main_run_done(tmp_path: Path, capsysbinary) -> None:
+    path = _write_file(
+        tmp_path,
+        "done.py",
+        "\n".join(
+            [
+                "class MyDag:",
+                "    def done_my_run(self, status, run):",
+                "        return status + run[\"run_id\"]",
+            ]
+        ),
+    )
+
+    argv = sys.argv
+    sys.argv = [
+        "gust",
+        "run",
+        "done",
+        "--file",
+        str(path),
+        "--dag",
+        "MyDag",
+        "--fn-name",
+        "done_my_run",
+        "--status",
+        "ok",
+        "--run-id",
+        "123",
+    ]
+    try:
+        main()
+    finally:
+        sys.argv = argv
+
+    captured = capsysbinary.readouterr()
+    assert captured.out == b""

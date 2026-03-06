@@ -19,20 +19,40 @@ def main():
 
     task = sub.add_parser("task", help="Task operations")
     task_sub = task.add_subparsers(dest="task_cmd", required=True)
-    run = task_sub.add_parser("run", help="Run a task from a DAG file")
-    run.add_argument("--file", required=True)
-    run.add_argument("--dag", required=True)
-    run.add_argument("--task", required=True)
-    run.add_argument("--ctx-json", default="{}")
+    task_run = task_sub.add_parser("run", help="Run a task from a DAG file")
+    task_run.add_argument("--file", required=True)
+    task_run.add_argument("--dag", required=True)
+    task_run.add_argument("--task", required=True)
+    task_run.add_argument("--ctx-json", default="{}")
+
+    run = sub.add_parser("run", help="Run DAG hooks")
+    run_sub = run.add_subparsers(dest="run_cmd", required=True)
+    done = run_sub.add_parser("done", help="Run on_finished callback")
+    done.add_argument("--file", required=True)
+    done.add_argument("--dag", required=True)
+    done.add_argument("--fn-name", dest="fn_name", required=True)
+    done.add_argument("--fn_name", dest="fn_name")
+    done.add_argument("--status", required=True)
+    done.add_argument("--run-id", dest="run_id", required=True)
 
     args = p.parse_args()
 
     if args.cmd == "parse":
         result = parse_dags_from_file(args.file)
-        _write_json(result)
+        print(json.dumps(result))
     elif args.cmd == "task" and args.task_cmd == "run":
         result = run_task_from_file(args.file, args.dag, args.task, args.ctx_json)
         _write_json(result)
+    elif args.cmd == "run" and args.run_cmd == "done":
+        result = run_done_from_file(
+            args.file,
+            args.dag,
+            args.fn_name,
+            args.status,
+            args.run_id,
+        )
+        if not result["ok"]:
+            sys.exit(1)
 
 
 def parse_dags_from_file(path: str) -> list[dict[str, Any]]:
@@ -105,7 +125,9 @@ def _parse_init_options(node: ast.ClassDef) -> tuple[Any | None, Any | None]:
             if kw.arg == "schedule":
                 schedule = _const_value(kw.value, default=schedule)
             elif kw.arg == "on_finished_callback":
-                on_finished_callback = _const_value(kw.value, default=on_finished_callback)
+                on_finished_callback = _const_value(
+                    kw.value, default=on_finished_callback
+                )
 
     return schedule, on_finished_callback
 
@@ -237,6 +259,41 @@ def run_task_from_file(
     return {"type": "result", "ok": True, "data": {"value": value}}
 
 
+def run_done_from_file(
+    path: str,
+    dag_name: str,
+    fn_name: str,
+    status: str,
+    run_id: str,
+) -> dict[str, Any]:
+    try:
+        module = _load_module(path)
+    except Exception as exc:
+        # TODO: DRY
+        return _error_result(f"Failed to load module from {path}", exc)
+
+    try:
+        dag_obj = _resolve_dag(module, dag_name)
+    except Exception as exc:
+        return _error_result(str(exc), exc)
+
+    callback = getattr(dag_obj, fn_name, None)
+    if callback is None:
+        return _error_result(f"Function '{fn_name}' not found on dag '{dag_name}'")
+    if not callable(callback):
+        return _error_result(
+            f"Function '{fn_name}' on dag '{dag_name}' is not callable"
+        )
+
+    run = {"run_id": run_id}
+    try:
+        value = callback(status, run)
+    except Exception as exc:
+        return _error_result("Callback execution failed", exc)
+
+    return {"type": "result", "ok": True, "data": {"value": value}}
+
+
 def _load_module(path: str) -> ModuleType:
     abs_path = os.path.abspath(path)
     digest = sha256(abs_path.encode("utf-8")).hexdigest()[:12]
@@ -273,7 +330,11 @@ def _resolve_dag(module: ModuleType, dag_name: str) -> Any:
 
 
 def _error_result(message: str, exc: Exception | None = None) -> dict[str, Any]:
-    payload: dict[str, Any] = {"type": "result", "ok": False, "error": {"message": message}}
+    payload: dict[str, Any] = {
+        "type": "result",
+        "ok": False,
+        "error": {"message": message},
+    }
     if exc is not None:
         payload["error"]["type"] = exc.__class__.__name__
         payload["error"]["details"] = str(exc)
