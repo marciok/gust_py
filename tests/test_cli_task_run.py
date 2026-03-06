@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import sys
 from pathlib import Path
 
@@ -115,7 +116,7 @@ def test_run_task_with_gust_imports(tmp_path: Path) -> None:
     assert result == {"type": "result", "ok": True, "data": {"value": 5}}
 
 
-def test_main_task_run(tmp_path: Path, capsys) -> None:
+def test_main_task_run(tmp_path: Path, capsysbinary) -> None:
     path = _write_file(
         tmp_path,
         "simple.py",
@@ -141,5 +142,8 @@ def test_main_task_run(tmp_path: Path, capsys) -> None:
     finally:
         sys.argv = argv
 
-    payload = json.loads(capsys.readouterr().out.strip())
+    captured = capsysbinary.readouterr()
+    raw = captured.out
+    length = struct.unpack(">I", raw[:4])[0]
+    payload = json.loads(raw[4 : 4 + length].decode("utf-8"))
     assert payload == {"type": "result", "ok": True, "data": {"value": 7}}

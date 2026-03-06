@@ -3,6 +3,7 @@ import ast
 import importlib.util
 import json
 import os
+import struct
 import sys
 from hashlib import sha256
 from types import ModuleType
@@ -28,10 +29,10 @@ def main():
 
     if args.cmd == "parse":
         result = parse_dags_from_file(args.file)
-        print(json.dumps(result))
+        _write_json(result)
     elif args.cmd == "task" and args.task_cmd == "run":
         result = run_task_from_file(args.file, args.dag, args.task, args.ctx_json)
-        print(json.dumps(result))
+        _write_json(result)
 
 
 def parse_dags_from_file(path: str) -> list[dict[str, Any]]:
@@ -277,3 +278,10 @@ def _error_result(message: str, exc: Exception | None = None) -> dict[str, Any]:
         payload["error"]["type"] = exc.__class__.__name__
         payload["error"]["details"] = str(exc)
     return payload
+
+
+def _write_json(obj: Any) -> None:
+    data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+    sys.stdout.buffer.write(struct.pack(">I", len(data)))
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
