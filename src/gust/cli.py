@@ -3,11 +3,12 @@ import ast
 import importlib.util
 import json
 import os
-import struct
 import sys
 from hashlib import sha256
 from types import ModuleType
 from typing import Any
+
+from gust import send_frame
 
 
 def main():
@@ -42,7 +43,7 @@ def main():
         print(json.dumps(result))
     elif args.cmd == "task" and args.task_cmd == "run":
         result = run_task_from_file(args.file, args.dag, args.task, args.ctx_json)
-        _write_json(result)
+        send_frame(result)
     elif args.cmd == "run" and args.run_cmd == "done":
         result = run_done_from_file(
             args.file,
@@ -343,9 +344,3 @@ def _error_result(message: str, exc: Exception | None = None) -> dict[str, Any]:
         payload["error"]["details"] = str(exc)
     return payload
 
-
-def _write_json(obj: Any) -> None:
-    data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
-    sys.stdout.buffer.write(struct.pack(">I", len(data)))
-    sys.stdout.buffer.write(data)
-    sys.stdout.buffer.flush()
