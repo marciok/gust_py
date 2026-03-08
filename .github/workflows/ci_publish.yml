@@ -1,0 +1,107 @@
+name: CI and Publish
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+  release:
+    types:
+      - published
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Ruff
+        run: uv run ruff check .
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Pytest
+        run: uv run pytest
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - test
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Verify release tag matches pyproject version
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          TAG_VERSION="${TAG_NAME#v}"
+          PROJECT_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          data = tomllib.loads(Path('pyproject.toml').read_text())
+          print(data['project']['version'])
+          PY
+          )"
+
+          if [ "$TAG_VERSION" != "$PROJECT_VERSION" ]; then
+            echo "Release tag version ($TAG_VERSION) does not match pyproject version ($PROJECT_VERSION)."
+            exit 1
+          fi
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
