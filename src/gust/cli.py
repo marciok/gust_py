@@ -51,7 +51,7 @@ def main():
             args.status,
             args.run_id,
         )
-        if not result["ok"]:
+        if result is not None and not result["ok"]:
             sys.exit(1)
 
 
@@ -235,15 +235,9 @@ def run_task_from_file(
     if not isinstance(ctx, dict):
         return _error_result("ctx-json must be a JSON object")
 
-    try:
-        module = _load_module(path)
-    except Exception as exc:
-        return _error_result(f"Failed to load module from {path}", exc)
-
-    try:
-        dag_obj = _resolve_dag(module, dag_name)
-    except Exception as exc:
-        return _error_result(str(exc), exc)
+    dag_obj, error = _load_dag_from_file(path, dag_name)
+    if error is not None:
+        return error
 
     task_fn = getattr(dag_obj, task_name, None)
     if task_fn is None:
@@ -265,17 +259,10 @@ def run_done_from_file(
     fn_name: str,
     status: str,
     run_id: str,
-) -> dict[str, Any]:
-    try:
-        module = _load_module(path)
-    except Exception as exc:
-        # TODO: DRY
-        return _error_result(f"Failed to load module from {path}", exc)
-
-    try:
-        dag_obj = _resolve_dag(module, dag_name)
-    except Exception as exc:
-        return _error_result(str(exc), exc)
+) -> dict[str, Any] | None:
+    dag_obj, error = _load_dag_from_file(path, dag_name)
+    if error is not None:
+        return error
 
     callback = getattr(dag_obj, fn_name, None)
     if callback is None:
@@ -287,11 +274,11 @@ def run_done_from_file(
 
     run = {"run_id": run_id}
     try:
-        value = callback(status, run)
+        callback(status, run)
     except Exception as exc:
         return _error_result("Callback execution failed", exc)
 
-    return {"type": "result", "ok": True, "data": {"value": value}}
+    return None
 
 
 def _load_module(path: str) -> ModuleType:
@@ -327,6 +314,22 @@ def _resolve_dag(module: ModuleType, dag_name: str) -> Any:
     if isinstance(dag_obj, type):
         return dag_obj()
     return dag_obj
+
+
+def _load_dag_from_file(
+    path: str, dag_name: str
+) -> tuple[Any | None, dict[str, Any] | None]:
+    try:
+        module = _load_module(path)
+    except Exception as exc:
+        return None, _error_result(f"Failed to load module from {path}", exc)
+
+    try:
+        dag_obj = _resolve_dag(module, dag_name)
+    except Exception as exc:
+        return None, _error_result(str(exc), exc)
+
+    return dag_obj, None
 
 
 def _error_result(message: str, exc: Exception | None = None) -> dict[str, Any]:

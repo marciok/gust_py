@@ -165,7 +165,7 @@ def test_run_done_success(tmp_path: Path) -> None:
     )
 
     result = run_done_from_file(str(path), "MyDag", "done_my_run", "ok", "123")
-    assert result == {"type": "result", "ok": True, "data": {"value": "done"}}
+    assert result is None
 
 
 def test_main_run_done(tmp_path: Path, capsysbinary) -> None:
