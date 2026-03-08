@@ -1,7 +1,7 @@
 [project]
 name = "gust-py"
 version = "0.1.0"
-description = "Add your description here"
+description = "Python runtime and authoring SDK for Gust DAGs, including parser and task invoker"
 readme = "README.md"
 authors = [
     { name = "Marcio Klepacz", email = "marcioklepacz@gmail.com" }
@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-gust-py = "gust_py:main" # TODO: Remove later this? 
+gust-py = "gust_py:main"
 gust = "gust.cli:main"
 
 [build-system]
