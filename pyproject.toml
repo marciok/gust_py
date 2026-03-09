@@ -1,6 +1,6 @@
 [project]
 name = "gust-py"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python runtime and authoring SDK for Gust DAGs, including parser and task invoker"
 readme = "README.md"
 authors = [
@@ -10,12 +10,15 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.scripts]
-gust-py = "gust_py:main"
+gust-py = "gust.cli:main"
 gust = "gust.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.26,<0.10.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "gust"
 
 [dependency-groups]
 dev = [
