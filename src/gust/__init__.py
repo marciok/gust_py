@@ -16,7 +16,7 @@ class Dag:
 def task(
     func: Callable[..., Any] | None = None,
     *,
-    deps: Any | None = None,
+    downstream: Any | None = None,
     save: bool = False,
 ) -> Callable[..., Any]:
     def decorator(inner: Callable[..., Any]) -> Callable[..., Any]:

@@ -34,7 +34,7 @@ class MyDag(Dag):
     def __init__(self):
         super().__init__(schedule="daily", on_finished_callback="done_my_run")
 
-    @task(deps=("prepare",), save=True)
+    @task(downstream=("prepare",), save=True)
     def hello(self, ctx):
         run_id = ctx["run_id"]
         prepare_run = get_task_by_name_run("prepare", run_id)

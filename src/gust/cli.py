@@ -147,9 +147,9 @@ def _parse_tasks(node: ast.ClassDef) -> tuple[list[str], dict[str, dict[str, Any
         if decorator is None:
             continue
 
-        deps, save = _parse_task_decorator(decorator)
+        downstream, save = _parse_task_decorator(decorator)
         task_list.append(item.name)
-        tasks[item.name] = {"deps": deps, "save": save}
+        tasks[item.name] = {"downstream": downstream, "save": save}
 
     return task_list, tasks
 
@@ -167,17 +167,17 @@ def _find_task_decorator(
 
 
 def _parse_task_decorator(dec: ast.expr) -> tuple[list[str], bool]:
-    deps: list[str] = []
+    downstream: list[str] = []
     save = False
 
     if isinstance(dec, ast.Call):
         for kw in dec.keywords:
-            if kw.arg == "deps":
-                deps = _parse_string_list(kw.value)
+            if kw.arg == "downstream":
+                downstream = _parse_string_list(kw.value)
             elif kw.arg == "save":
                 save = bool(_const_value(kw.value, default=save))
 
-    return deps, save
+    return downstream, save
 
 
 def _parse_string_list(value: ast.expr) -> list[str]:
@@ -343,4 +343,3 @@ def _error_result(message: str, exc: Exception | None = None) -> dict[str, Any]:
         payload["error"]["type"] = exc.__class__.__name__
         payload["error"]["details"] = str(exc)
     return payload
-

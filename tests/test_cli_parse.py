@@ -42,7 +42,7 @@ def test_main_parse_emits_json(tmp_path: Path, capsys) -> None:
     payload = json.loads(captured.out.strip())
     assert payload[0]["mod"] == "Simple"
     assert payload[0]["task_list"] == ["hello"]
-    assert payload[0]["tasks"]["hello"] == {"deps": [], "save": False}
+    assert payload[0]["tasks"]["hello"] == {"downstream": [], "save": False}
     assert payload[0]["options"] == {"schedule": None, "on_finished_callback": None}
     assert payload[0]["file_path"] == str(path)
 
@@ -67,11 +67,11 @@ def test_parse_attr_base_and_options(tmp_path: Path) -> None:
                 "    def helper(self):",
                 "        return None",
                 "",
-                '    @task(deps=("a", "b"), save=True)',
+                '    @task(downstream=("a", "b"), save=True)',
                 "    def t1(self, ctx):",
                 "        return None",
                 "",
-                '    @task(deps="solo")',
+                '    @task(downstream="solo")',
                 "    def t2(self, ctx):",
                 "        return None",
             ]
@@ -84,8 +84,8 @@ def test_parse_attr_base_and_options(tmp_path: Path) -> None:
     assert dag["mod"] == "AttrDag"
     assert dag["options"] == {"schedule": "daily", "on_finished_callback": "cb"}
     assert dag["task_list"] == ["t1", "t2"]
-    assert dag["tasks"]["t1"] == {"deps": ["a", "b"], "save": True}
-    assert dag["tasks"]["t2"] == {"deps": ["solo"], "save": False}
+    assert dag["tasks"]["t1"] == {"downstream": ["a", "b"], "save": True}
+    assert dag["tasks"]["t2"] == {"downstream": ["solo"], "save": False}
 
 
 def test_parse_super_name_target_and_nonconst(tmp_path: Path) -> None:
@@ -108,11 +108,11 @@ def test_parse_super_name_target_and_nonconst(tmp_path: Path) -> None:
                 "    def other(self):",
                 "        return None",
                 "",
-                '    @task(deps=[1, "x"], save=flag)',
+                '    @task(downstream=[1, "x"], save=flag)',
                 "    def t1(self, ctx):",
                 "        return None",
                 "",
-                "    @task(deps=1)",
+                "    @task(downstream=1)",
                 "    def t2(self, ctx):",
                 "        return None",
             ]
@@ -122,5 +122,5 @@ def test_parse_super_name_target_and_nonconst(tmp_path: Path) -> None:
     result = parse_dags_from_file(str(path))
     dag = result[0]
     assert dag["options"] == {"schedule": None, "on_finished_callback": None}
-    assert dag["tasks"]["t1"] == {"deps": ["x"], "save": False}
-    assert dag["tasks"]["t2"] == {"deps": [], "save": False}
+    assert dag["tasks"]["t1"] == {"downstream": ["x"], "save": False}
+    assert dag["tasks"]["t2"] == {"downstream": [], "save": False}

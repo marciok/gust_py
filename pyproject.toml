@@ -1,6 +1,6 @@
 [project]
 name = "gust-py"
-version = "0.1.1"
+version = "0.1.2"
 description = "Python runtime and authoring SDK for Gust DAGs, including parser and task invoker"
 readme = "README.md"
 authors = [

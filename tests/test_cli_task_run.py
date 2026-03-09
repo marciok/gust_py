@@ -105,7 +105,7 @@ def test_run_task_with_gust_imports(tmp_path: Path) -> None:
                 "    def __init__(self):",
                 "        super().__init__(schedule=\"daily\")",
                 "",
-                "    @task(deps=(\"a\", \"b\"), save=True)",
+                "    @task(downstream=(\"a\", \"b\"), save=True)",
                 "    def t1(self, ctx):",
                 "        return 5",
             ]
