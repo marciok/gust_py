@@ -32,7 +32,7 @@ from gust import Dag, task, get_task_by_name_run, get_secret_by_name, log
 
 class MyDag(Dag):
     def __init__(self):
-        super().__init__(schedule="daily", on_finished_callback="done_my_run")
+        super().__init__(schedule="@daily", on_finished_callback="done_my_run")
 
     @task(downstream=("prepare",), save=True)
     def hello(self, ctx):
@@ -43,7 +43,7 @@ class MyDag(Dag):
         return {"ok": True}
 
     def done_my_run(self, status, run):
-        log(f"run {run['run_id']} finished with status={status}", level="info")
+        log(f"run {run['run_id']} finished with status={status}")
 ```
 
 ## Runtime Messaging Protocol
