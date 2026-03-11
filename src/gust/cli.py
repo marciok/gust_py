@@ -240,6 +240,7 @@ def run_task_from_file(
     if error is not None:
         return error
 
+    send_frame({"type": "start", "pid": os.getpid()})
     task_fn = getattr(dag_obj, task_name, None)
     if task_fn is None:
         return _error_result(f"Task '{task_name}' not found on dag '{dag_name}'")

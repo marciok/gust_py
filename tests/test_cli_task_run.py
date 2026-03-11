@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import struct
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
+import gust.cli as cli  # noqa: E402
 from gust.cli import main, run_done_from_file, run_task_from_file  # noqa: E402
 
 
@@ -14,6 +16,18 @@ def _write_file(tmp_path: Path, name: str, contents: str) -> Path:
     path = tmp_path / name
     path.write_text(contents, encoding="utf-8")
     return path
+
+
+def _read_frames(raw: bytes) -> list[dict[str, object]]:
+    frames: list[dict[str, object]] = []
+    offset = 0
+    while offset < len(raw):
+        length = struct.unpack(">I", raw[offset : offset + 4])[0]
+        offset += 4
+        payload = json.loads(raw[offset : offset + length].decode("utf-8"))
+        frames.append(payload)
+        offset += length
+    return frames
 
 
 def test_run_task_success(tmp_path: Path) -> None:
@@ -32,6 +46,25 @@ def test_run_task_success(tmp_path: Path) -> None:
 
     result = run_task_from_file(str(path), "Shalom", "hello", "{\"run_id\":\"34809\"}")
     assert result == {"type": "result", "ok": True, "data": {"value": 123}}
+
+
+def test_run_task_sends_start_frame(tmp_path: Path, monkeypatch) -> None:
+    path = _write_file(
+        tmp_path,
+        "simple.py",
+        "\n".join(["class Shalom:", "    def hello(self, ctx):", "        return 7"]),
+    )
+    sent: list[dict[str, object]] = []
+
+    def fake_send_frame(payload: dict[str, object]) -> None:
+        sent.append(payload)
+
+    monkeypatch.setattr(cli, "send_frame", fake_send_frame)
+
+    result = cli.run_task_from_file(str(path), "Shalom", "hello", "{}")
+
+    assert sent == [{"type": "start", "pid": os.getpid()}]
+    assert result == {"type": "result", "ok": True, "data": {"value": 7}}
 
 
 def test_run_task_invalid_ctx_json(tmp_path: Path) -> None:
@@ -143,10 +176,10 @@ def test_main_task_run(tmp_path: Path, capsysbinary) -> None:
         sys.argv = argv
 
     captured = capsysbinary.readouterr()
-    raw = captured.out
-    length = struct.unpack(">I", raw[:4])[0]
-    payload = json.loads(raw[4 : 4 + length].decode("utf-8"))
-    assert payload == {"type": "result", "ok": True, "data": {"value": 7}}
+    assert _read_frames(captured.out) == [
+        {"type": "start", "pid": os.getpid()},
+        {"type": "result", "ok": True, "data": {"value": 7}},
+    ]
 
 
 def test_run_done_success(tmp_path: Path) -> None:
